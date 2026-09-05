@@ -118,7 +118,12 @@ def handle_start_command(args: argparse.Namespace, console: Console) -> None:
         sys.exit(2)
 
 
-def _require_api_key(console: Console) -> str:
+def _require_api_key(console: Console) -> str | None:
+    """The Weco API key, or None in local mode (no login, offline dashboard)."""
+    from weco import mode
+
+    if mode.is_local():
+        return None
     api_key = load_weco_api_key()
     if not api_key:
         console.print("[red]Not logged in.[/] Run [bold]weco login[/] first.")
@@ -169,6 +174,9 @@ def _handle_opencode(args: argparse.Namespace, console: Console) -> None:
 
 
 def _handle_claude(args: argparse.Namespace, console: Console) -> None:
+    from weco import mode
+
+    local = mode.is_local()
     api_key = _require_api_key(console)
     _require_claude_cli(console)
 
@@ -178,8 +186,17 @@ def _handle_claude(args: argparse.Namespace, console: Console) -> None:
 
     effort = getattr(args, "effort", None)
     billing = getattr(args, "billing", "claude")
+    if local and billing == "weco":
+        console.print(
+            "[red]weco billing routes model calls through Weco's cloud, which local mode never does.[/]\n"
+            "Run with the default claude billing (your own Claude auth), or opt in with "
+            "[bold]WECO_MODE=weco[/]."
+        )
+        sys.exit(2)
     headless = getattr(args, "headless", False)
     seed_prompt = getattr(args, "prompt", None)
+    if local:
+        console.print("[dim]Local mode: running with an offline dashboard (no relay, no login).[/]")
 
     from weco import __base_url__
     from .tui_bridge import run_headless_bridge, run_tui_bridge

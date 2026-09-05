@@ -76,6 +76,11 @@ def configure_observe_parser(observe_parser: argparse.ArgumentParser) -> None:
     # External run lifecycle is managed by the dashboard, not the CLI.
     # Logging a step to a closed run will silently reopen it.
 
+    # --- list / show (local mode's reading surface) ---
+    subparsers.add_parser("list", help="List locally tracked runs (local mode)")
+    show_parser = subparsers.add_parser("show", help="Show a locally tracked run and its steps (local mode)")
+    show_parser.add_argument("--run-id", type=str, required=True, help="Run ID (from weco observe init)")
+
 
 def _read_code_files(paths: list[str]) -> dict[str, str]:
     """Read source code files from disk. Exits 1 if any file cannot be read.
@@ -97,8 +102,14 @@ def _read_code_files(paths: list[str]) -> dict[str, str]:
 def execute_observe_command(args: argparse.Namespace) -> None:
     """Execute an observe subcommand."""
     if not args.observe_command:
-        print("Usage: weco observe {init,log}", file=sys.stderr)
+        print("Usage: weco observe {init,log,list,show}", file=sys.stderr)
         sys.exit(2)
+
+    from weco import mode
+
+    if mode.is_local():
+        _execute_local(args)
+        return
 
     # Build headers straight from the stored key: a sidecar embedded in a
     # scripted loop must never open handle_authentication's interactive prompt.
@@ -112,6 +123,73 @@ def execute_observe_command(args: argparse.Namespace) -> None:
         _handle_init(args, auth_headers)
     elif args.observe_command == "log":
         _handle_log(args, auth_headers)
+    elif args.observe_command in ("list", "show"):
+        print(
+            "weco observe: list and show read the local store; in cloud mode the "
+            f"dashboard is the reading surface ({__dashboard_url__}).",
+            file=sys.stderr,
+        )
+        sys.exit(2)
+
+
+def _execute_local(args: argparse.Namespace) -> None:
+    """Local mode: record under .weco/observe, post nothing, open nothing."""
+    import pathlib
+
+    from weco.observe.local_store import LocalStore, LocalStoreError
+
+    store = LocalStore(pathlib.Path.cwd())
+
+    if args.observe_command == "init":
+        source_arg = args.sources if args.sources is not None else [args.source]
+        source_code = _read_code_files(source_arg)
+        run_id = store.init_run(
+            name=args.name,
+            metric=args.metric,
+            maximize=args.goal in ("maximize", "max"),
+            source_code=source_code,
+            additional_instructions=args.additional_instructions,
+        )
+        # Only the run_id on stdout, capturable by $(...); where it lives on stderr.
+        print(run_id)
+        print(f"weco observe: tracking locally under {store.observe_dir}", file=sys.stderr)
+    elif args.observe_command == "log":
+        metrics = {}
+        if args.metrics:
+            try:
+                metrics = json.loads(args.metrics)
+            except json.JSONDecodeError as e:
+                print(f"weco observe: invalid metrics JSON: {e}", file=sys.stderr)
+                sys.exit(1)
+        code = None
+        source_arg = args.sources if args.sources is not None else ([args.source] if args.source else None)
+        if source_arg:
+            code = _read_code_files(source_arg)
+        try:
+            store.log_step(
+                run_id=args.run_id,
+                step=args.step,
+                status=args.status,
+                description=args.description,
+                metrics=metrics,
+                code=code,
+                parent_step=args.parent_step,
+            )
+        except LocalStoreError as e:
+            print(f"weco observe: {e}", file=sys.stderr)
+            sys.exit(1)
+    elif args.observe_command == "list":
+        for record in store.list_runs():
+            print(
+                f"{record.get('run_id')}  steps={record.get('steps', 0):3d}  "
+                f"{record.get('metric')} ({record.get('goal')})  {record.get('name') or ''}"
+            )
+    elif args.observe_command == "show":
+        try:
+            print(json.dumps(store.show_run(args.run_id), indent=2))
+        except LocalStoreError as e:
+            print(f"weco observe: {e}", file=sys.stderr)
+            sys.exit(1)
 
 
 def _handle_init(args: argparse.Namespace, auth_headers: dict) -> None:

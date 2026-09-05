@@ -11,7 +11,20 @@ from ..auth import handle_authentication
 
 
 def make_client(console: Console) -> WecoClient:
-    """Authenticate and return a ``WecoClient``, or exit on failure."""
+    """Authenticate and return a ``WecoClient``, or exit on failure.
+
+    Local mode never builds a cloud client: a command that needs one is a
+    cloud feature, and the user must opt in explicitly.
+    """
+    from weco import mode
+
+    if mode.is_local():
+        console.print(
+            "[red]This command talks to Weco's cloud, which local mode never does.[/]\n"
+            "Opt in explicitly with [bold]WECO_MODE=weco[/] (or --mode weco where the "
+            "command accepts it), after [bold]weco login[/]."
+        )
+        sys.exit(2)
     _, auth_headers = handle_authentication(console)
     if not auth_headers:
         sys.exit(1)

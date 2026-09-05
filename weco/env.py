@@ -124,8 +124,13 @@ class WecoEnv:
         """Check for CLI package and skill updates.
 
         Prints a yellow warning and pauses briefly for each available
-        update.  Fails silently — never disrupts the user.
+        update.  Fails silently — never disrupts the user. Local mode makes
+        no update pings at all (no PyPI lookup, no version endpoint).
         """
+        from weco import mode
+
+        if mode.is_local():
+            return
         self._check_cli_updates()
         self._check_skill_updates()
 

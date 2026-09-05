@@ -801,6 +801,16 @@ def _main() -> None:
     )
     configure_observe_parser(observe_parser)
 
+    # --- Local Command Parser Setup ---
+    from .commands.local_cmd import configure_local_parser
+
+    local_parser = subparsers.add_parser(
+        "local",
+        help="Local-mode commands (the optimization loop on your own infrastructure)",
+        formatter_class=argparse.RawTextHelpFormatter,
+    )
+    configure_local_parser(local_parser)
+
     # --- Slots Command Parser Setup ---
     slots_parser = subparsers.add_parser("slots", help="Verify and clean isolated parallel evaluation slots")
     slots_subparsers = slots_parser.add_subparsers(dest="slots_command")
@@ -888,6 +898,11 @@ def _main() -> None:
         sys.exit(0)
     elif args.command == "observe":
         execute_observe_command(args)
+        sys.exit(0)
+    elif args.command == "local":
+        from .commands.local_cmd import execute_local_command
+
+        execute_local_command(args, console)
         sys.exit(0)
     elif args.command == "slots":
         from .commands.slots import handle_clean, handle_verify

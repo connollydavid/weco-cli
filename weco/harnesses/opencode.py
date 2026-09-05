@@ -121,11 +121,7 @@ def _find_project_config(start_dir: pathlib.Path | None) -> pathlib.Path | None:
     return None
 
 
-def load_opencode_config(
-    *,
-    start_dir: pathlib.Path | None = None,
-    env: dict[str, str] | None = None,
-) -> dict:
+def load_opencode_config(*, start_dir: pathlib.Path | None = None, env: dict[str, str] | None = None) -> dict:
     """Load opencode's merged config chain (values raw, placeholders intact).
 
     Order, later overriding per key: global config, ``OPENCODE_CONFIG``

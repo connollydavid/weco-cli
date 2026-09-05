@@ -9,13 +9,7 @@ import subprocess
 import pytest
 
 from weco.harnesses import HarnessConfigError
-from weco.harnesses.opencode import (
-    load_auth,
-    load_opencode_config,
-    resolve_provider_endpoint,
-    strip_jsonc,
-    substitute,
-)
+from weco.harnesses.opencode import load_auth, load_opencode_config, resolve_provider_endpoint, strip_jsonc, substitute
 
 EMPTY_ENV = {"HOME": "/nonexistent-weco-home", "PATH": "/usr/bin:/bin"}
 
@@ -54,7 +48,7 @@ def test_chain_merges_per_key_with_later_sources_overriding(tmp_path) -> None:
     )
     override = tmp_path / "override.jsonc"
     override.write_text(
-        "{\n  // jsonc works everywhere in the chain\n  \"model\": \"openai/gpt\",\n  \"small_model\": \"openai/gpt-mini\",\n}",
+        '{\n  // jsonc works everywhere in the chain\n  "model": "openai/gpt",\n  "small_model": "openai/gpt-mini",\n}',
         encoding="utf-8",
     )
     env["OPENCODE_CONFIG"] = str(override)
@@ -129,7 +123,9 @@ def test_auth_from_data_home(tmp_path) -> None:
 
 def test_auth_inline_override(tmp_path) -> None:
     home, env = _sandbox(tmp_path)
-    (home / ".local" / "share" / "opencode" / "auth.json").write_text(json.dumps({"a": {"type": "api", "key": "1"}}), encoding="utf-8")
+    (home / ".local" / "share" / "opencode" / "auth.json").write_text(
+        json.dumps({"a": {"type": "api", "key": "1"}}), encoding="utf-8"
+    )
     env["OPENCODE_AUTH_CONTENT"] = json.dumps({"b": {"type": "api", "key": "2"}})
     assert load_auth(env=env) == {"b": {"type": "api", "key": "2"}}
 
@@ -140,7 +136,11 @@ def test_endpoint_falls_back_to_catalog_then_auth_key(tmp_path) -> None:
     catalog = {"anthropic": "https://api.anthropic.com"}
 
     from_config = resolve_provider_endpoint(
-        {"provider": {"anthropic": {"options": {"baseURL": "https://proxy"}}}}, "anthropic", auth=auth, catalog=catalog, env=env
+        {"provider": {"anthropic": {"options": {"baseURL": "https://proxy"}}}},
+        "anthropic",
+        auth=auth,
+        catalog=catalog,
+        env=env,
     )
     assert from_config.base_url == "https://proxy"
     assert from_config.key_source == "auth"

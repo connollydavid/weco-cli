@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import argparse
 import json
-import pathlib
 
 import pytest
 
@@ -33,10 +32,22 @@ def test_store_roundtrip(tmp_path):
         additional_instructions=None,
     )
     store.log_step(
-        run_id=run_id, step=0, status="completed", description="baseline", metrics={"latency_ms": 100.0}, code=None, parent_step=None
+        run_id=run_id,
+        step=0,
+        status="completed",
+        description="baseline",
+        metrics={"latency_ms": 100.0},
+        code=None,
+        parent_step=None,
     )
     store.log_step(
-        run_id=run_id, step=1, status="failed", description="oom", metrics={"latency_ms": 0.0}, code={"train.py": "print(2)"}, parent_step=0
+        run_id=run_id,
+        step=1,
+        status="failed",
+        description="oom",
+        metrics={"latency_ms": 0.0},
+        code={"train.py": "print(2)"},
+        parent_step=0,
     )
 
     listed = store.list_runs()
@@ -61,9 +72,7 @@ def test_store_roundtrip(tmp_path):
 def test_store_unknown_run_raises(tmp_path):
     store = LocalStore(tmp_path)
     with pytest.raises(LocalStoreError):
-        store.log_step(
-            run_id="missing", step=0, status="completed", description=None, metrics={}, code=None, parent_step=None
-        )
+        store.log_step(run_id="missing", step=0, status="completed", description=None, metrics={}, code=None, parent_step=None)
     with pytest.raises(LocalStoreError):
         store.show_run("missing")
 
@@ -132,7 +141,13 @@ def test_cli_local_invalid_metrics_json_fails(local_mode, workspace):
     (workspace / "train.py").write_text("x = 1\n", encoding="utf-8")
     execute_observe_command(
         argparse.Namespace(
-            observe_command="init", name=None, metric="m", goal="minimize", source="train.py", sources=None, additional_instructions=None
+            observe_command="init",
+            name=None,
+            metric="m",
+            goal="minimize",
+            source="train.py",
+            sources=None,
+            additional_instructions=None,
         )
     )
     with pytest.raises(SystemExit) as excinfo:

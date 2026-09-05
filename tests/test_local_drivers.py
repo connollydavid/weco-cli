@@ -10,16 +10,8 @@ import tarfile
 from types import SimpleNamespace
 
 import pytest
-from rich.console import Console
 
-from weco.local.chroot import (
-    ChrootError,
-    ChrootManifest,
-    build_rootfs,
-    systemd_run_argv,
-    unpack_rootfs,
-    verify_sha256,
-)
+from weco.local.chroot import ChrootError, ChrootManifest, build_rootfs, systemd_run_argv, unpack_rootfs, verify_sha256
 from weco.local.loop import local_optimize, make_opencode_step, parse_metric
 from weco.local.quadlet import ContainerSpec, install_unit, render_container_unit, run_unit, unit_name
 
@@ -155,12 +147,7 @@ def test_unpack_rejects_traversal_members(tmp_path):
 def test_build_rootfs_is_reproducible(tmp_path):
     archive = make_archive(tmp_path, {"etc/motd": "hello\n", "bin/probe": "#!/bin/sh\n"})
     digest = hashlib.sha256(archive.read_bytes()).hexdigest()
-    m = ChrootManifest(
-        name="repro",
-        rootfs_url="https://example/rootfs.tar.gz",
-        rootfs_sha256=digest,
-        command=("/bin/probe",),
-    )
+    m = ChrootManifest(name="repro", rootfs_url="https://example/rootfs.tar.gz", rootfs_sha256=digest, command=("/bin/probe",))
     first = build_rootfs(m, archive=archive, root=tmp_path / "a")
     second = build_rootfs(m, archive=archive, root=tmp_path / "b")
     listing = lambda root: sorted(str(p.relative_to(root)) for p in root.rglob("*"))  # noqa: E731
@@ -216,7 +203,7 @@ def test_local_optimize_end_to_end_with_fake_harness(tmp_path, monkeypatch):
 
     summary = local_optimize(
         harness_step=fake_harness,
-        eval_command="echo \"latency_ms: $(cat value.txt)\"",
+        eval_command='echo "latency_ms: $(cat value.txt)"',
         metric="latency_ms",
         maximize=False,
         steps=3,

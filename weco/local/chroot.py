@@ -115,11 +115,7 @@ def build_rootfs(manifest: ChrootManifest, *, archive: pathlib.Path, root: pathl
 
 
 def systemd_run_argv(
-    manifest: ChrootManifest,
-    rootfs: pathlib.Path,
-    *,
-    workspace: pathlib.Path,
-    workspace_target: str = "/work",
+    manifest: ChrootManifest, rootfs: pathlib.Path, *, workspace: pathlib.Path, workspace_target: str = "/work"
 ) -> list[str]:
     """The systemd-run --user command that enters the chroot.
 

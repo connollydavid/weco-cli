@@ -88,13 +88,7 @@ def install_unit(spec: ContainerSpec, base: pathlib.Path | None = None) -> pathl
     return path
 
 
-def run_unit(
-    spec: ContainerSpec,
-    *,
-    base: pathlib.Path | None = None,
-    runner=subprocess.run,
-    tail: str = "200",
-) -> int:
+def run_unit(spec: ContainerSpec, *, base: pathlib.Path | None = None, runner=subprocess.run, tail: str = "200") -> int:
     """Install the unit, reload the user manager, and run it to completion.
 
     ``runner`` is injectable for tests; in production each call is a real
@@ -103,13 +97,15 @@ def run_unit(
     """
     import sys
 
-    path = install_unit(spec, base)
+    install_unit(spec, base)
     reload_result = runner(["systemctl", "--user", "daemon-reload"], check=False)
     if reload_result.returncode != 0:
         print(f"weco local: systemctl --user daemon-reload failed (rc {reload_result.returncode})", file=sys.stderr)
         return reload_result.returncode
     start_result = runner(["systemctl", "--user", "start", "--wait", unit_name(spec)], check=False)
     if start_result.returncode != 0:
-        journal = runner(["journalctl", "--user", "-u", unit_name(spec), "-n", tail], check=False, capture_output=True, text=True)
+        journal = runner(
+            ["journalctl", "--user", "-u", unit_name(spec), "-n", tail], check=False, capture_output=True, text=True
+        )
         print(journal.stdout or "", file=sys.stderr)
     return start_result.returncode

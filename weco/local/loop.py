@@ -9,7 +9,6 @@ an append-only report under ``.weco/local-loop/``.
 
 from __future__ import annotations
 
-import dataclasses
 import io
 import json
 import pathlib
@@ -69,9 +68,7 @@ def local_optimize(
     for step in range(steps):
         harness_step(step, best_value)
         value, output = run_eval(eval_command, metric=metric, cwd=workdir, runner=runner)
-        improved = value is not None and (
-            best_value is None or (value > best_value if maximize else value < best_value)
-        )
+        improved = value is not None and (best_value is None or (value > best_value if maximize else value < best_value))
         if improved:
             best_value, best_step = value, step
         history.append({"step": step, "value": value, "improved_best": improved, "output_tail": output[-2000:]})
@@ -101,7 +98,11 @@ def make_opencode_step(workdir: pathlib.Path, *, metric: str, maximize: bool, ag
         prompt = (
             f"Optimization step {index + 1}: improve the {metric} metric ({goal}) of the code in this "
             "workspace by editing the files. "
-            + (f"The best {metric} so far is {current_best}; beat it. " if current_best is not None else "Establish a strong baseline. ")
+            + (
+                f"The best {metric} so far is {current_best}; beat it. "
+                if current_best is not None
+                else "Establish a strong baseline. "
+            )
             + "The evaluation command will measure your changes afterwards. Edit files only; do not run "
             "the evaluation loop yourself."
         )

@@ -137,9 +137,7 @@ def test_start_claude_rejects_weco_billing_in_local_mode(local_mode, monkeypatch
 
     with pytest.raises(SystemExit) as excinfo:
         start_cli._handle_claude(
-            argparse.Namespace(
-                allow_tools=False, claude_args=[], effort=None, billing="weco", headless=False, prompt=None
-            ),
+            argparse.Namespace(allow_tools=False, claude_args=[], effort=None, billing="weco", headless=False, prompt=None),
             build_console(),
         )
     assert excinfo.value.code == 2
@@ -158,9 +156,7 @@ def test_start_claude_offline_in_local_mode(local_mode, monkeypatch):
 
     with pytest.raises(SystemExit) as excinfo:
         start_cli._handle_claude(
-            argparse.Namespace(
-                allow_tools=False, claude_args=[], effort=None, billing="claude", headless=False, prompt=None
-            ),
+            argparse.Namespace(allow_tools=False, claude_args=[], effort=None, billing="claude", headless=False, prompt=None),
             build_console(),
         )
     assert excinfo.value.code == 0

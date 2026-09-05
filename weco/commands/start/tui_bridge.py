@@ -105,7 +105,11 @@ def run_tui_bridge(
 ) -> int:
     """Boot the TUI and the SDK-driven orchestrator."""
     try:
-        session = DashboardSession.create(api_key=api_key, agent_type=AGENT_TYPE)
+        session = (
+            DashboardSession.create(api_key=api_key, agent_type=AGENT_TYPE)
+            if api_key
+            else DashboardSession.offline()  # local mode: no login, no relay
+        )
     except SetupError as e:
         console.print(f"[red]Could not create dashboard session:[/] {e}")
         console.print("[yellow]Falling back to a plain local Claude Code session.[/]")
@@ -149,7 +153,11 @@ def run_headless_bridge(
     interactive surface. Pair with `--allow-tools` (no local approval modal) and
     `--prompt` to seed the first turn."""
     try:
-        session = DashboardSession.create(api_key=api_key, agent_type=AGENT_TYPE)
+        session = (
+            DashboardSession.create(api_key=api_key, agent_type=AGENT_TYPE)
+            if api_key
+            else DashboardSession.offline()  # local mode: no login, no relay
+        )
     except SetupError as e:
         console.print(f"[red]Could not create dashboard session:[/] {e}")
         console.print(

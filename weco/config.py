@@ -87,16 +87,23 @@ def clear_api_key():
         print("Already logged out.")
 
 
-def get_or_create_installation_id() -> str:
+def get_or_create_installation_id() -> str | None:
     """Gets or creates a persistent installation ID for anonymous event reporting.
 
     The installation ID is stored in ~/.config/weco/installation.json and
     persists across CLI invocations. It is used to link anonymous events
-    to the user once they authenticate.
+    to the user once they authenticate. Local mode never creates or reads
+    one: no identifier is generated and nothing is written to disk.
 
     Returns:
-        The installation ID (a UUID string prefixed with 'inst_').
+        The installation ID (a UUID string prefixed with 'inst_'), or None
+        in local mode.
     """
+    from weco import mode
+
+    if mode.is_local():
+        return None
+
     ensure_config_dir()
 
     # Try to load existing installation ID

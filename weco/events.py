@@ -169,7 +169,12 @@ class AuthFailedEvent(BaseEvent):
 
 
 def _is_events_disabled() -> bool:
-    """Check if event reporting is disabled via environment variable."""
+    """Check if event reporting is disabled: local mode never reports, and
+    WECO_DISABLE_EVENTS opts out in cloud mode."""
+    from weco import mode
+
+    if mode.is_local():
+        return True
     val = os.environ.get("WECO_DISABLE_EVENTS", "").lower()
     return val in ("1", "true", "yes")
 

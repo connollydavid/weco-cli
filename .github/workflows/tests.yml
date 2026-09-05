@@ -1,0 +1,27 @@
+name: Tests
+
+# The test lane: no network, no harness binaries, no real HOME. Runs the
+# full pytest suite across the supported Python versions. The lint lane
+# stays pinned as upstream ships it; this lane is additive.
+
+on:
+  push:
+    branches: [main, "series/**"]
+  pull_request:
+
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.10", "3.11", "3.12"]
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Install package and test dependencies
+        run: pip install -e ".[dev]"
+      - name: Run the test suite
+        run: python -m pytest tests/ -q

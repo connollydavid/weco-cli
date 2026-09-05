@@ -1,4 +1,4 @@
-"""`weco start claude` — run Claude Code with a bidirectional bridge to the dashboard."""
+"""`weco start claude` / `weco start opencode` — launch a bridged agent harness."""
 
 from __future__ import annotations
 
@@ -81,14 +81,40 @@ def configure_start_parser(start_parser: argparse.ArgumentParser) -> None:
         help="Arguments to forward to claude (prefix with -- to separate from weco flags)",
     )
 
+    opencode_parser = sub.add_parser(
+        "opencode",
+        help="Launch opencode headlessly, streaming its JSON events as normalized JSONL",
+        formatter_class=argparse.RawTextHelpFormatter,
+    )
+    opencode_parser.add_argument(
+        "-p",
+        "--prompt",
+        type=str,
+        default=None,
+        help="The prompt for the run (opencode runs headlessly; there is no TUI to type into).",
+    )
+    opencode_parser.add_argument(
+        "--agent",
+        type=str,
+        default=None,
+        help="Run with a specific opencode agent (defaults to opencode's own default agent).",
+    )
+    opencode_parser.add_argument(
+        "opencode_args",
+        nargs=argparse.REMAINDER,
+        help="Arguments to forward to opencode (prefix with -- to separate from weco flags)",
+    )
+
 
 def handle_start_command(args: argparse.Namespace, console: Console) -> None:
     sub = getattr(args, "start_command", None)
     if sub == "claude":
         _handle_claude(args, console)
+    elif sub == "opencode":
+        _handle_opencode(args, console)
     else:
         console.print("[red]Unknown start subcommand.[/]")
-        console.print("Usage: [bold]weco start claude[/]")
+        console.print("Usage: [bold]weco start claude | weco start opencode[/]")
         sys.exit(2)
 
 
@@ -116,6 +142,30 @@ def _strip_arg_separator(args: list[str]) -> list[str]:
     if args and args[0] == "--":
         return args[1:]
     return args
+
+
+def _require_opencode_cli(console: Console) -> None:
+    """Fail fast if opencode isn't installed — `weco start opencode` drives it."""
+    if shutil.which("opencode"):
+        return
+    console.print(
+        "[red]opencode CLI not found.[/] [bold]weco start opencode[/] runs opencode under the hood.\n"
+        "Install it, then re-run: https://opencode.ai/docs/"
+    )
+    sys.exit(1)
+
+
+def _handle_opencode(args: argparse.Namespace, console: Console) -> None:
+    # No Weco login: the bridge spawns opencode, which resolves its own
+    # providers and credentials from its configuration (see weco.harnesses).
+    _require_opencode_cli(console)
+    forwarded = _strip_arg_separator(list(getattr(args, "opencode_args", []) or []))
+    from .opencode_bridge import run_opencode_bridge
+
+    exit_code = run_opencode_bridge(
+        prompt=getattr(args, "prompt", None), agent=getattr(args, "agent", None), forwarded_args=forwarded, console=console
+    )
+    sys.exit(exit_code)
 
 
 def _handle_claude(args: argparse.Namespace, console: Console) -> None:

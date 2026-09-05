@@ -47,6 +47,14 @@ SETUP_TARGETS = (
         help_text="Set up Weco skill for OpenClaw",
         install_dir=pathlib.Path.home() / ".openclaw" / "skills" / "weco",
     ),
+    SetupTarget(
+        name="opencode",
+        label="opencode",
+        help_text="Set up Weco skill for opencode",
+        # opencode discovers user-global skills here and advertises them from
+        # the SKILL.md frontmatter description, so no trigger file is needed.
+        install_dir=pathlib.Path.home() / ".config" / "opencode" / "skills" / "weco",
+    ),
 )
 
 SETUP_TARGET_BY_NAME = {target.name: target for target in SETUP_TARGETS}

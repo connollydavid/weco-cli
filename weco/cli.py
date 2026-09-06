@@ -7,6 +7,7 @@ from rich.traceback import install
 from .auth import perform_login
 from .config import clear_api_key
 from .constants import DEFAULT_MODELS
+from . import build_identity
 from .env import WecoEnv
 from .events import send_event, get_event_context, CLIInvokedEvent, RunStartAttemptedEvent
 from .observe.cli import configure_observe_parser, execute_observe_command
@@ -755,6 +756,12 @@ def _main() -> None:
     )
 
     # Global flags
+    parser.add_argument(
+        "--version",
+        action="version",
+        version=build_identity(),
+        help="Show the version, the fork it comes from, and the installed commitish",
+    )
     parser.add_argument(
         "--via-skill",
         action="store_true",

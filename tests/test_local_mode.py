@@ -131,6 +131,28 @@ def test_start_claude_requires_login_in_cloud_mode(cloud_mode):
     assert excinfo.value.code == 1
 
 
+def test_run_refuses_cleanly_in_local_mode(local_mode, capsys):
+    import argparse
+
+    from weco.cli import execute_run_command
+
+    with pytest.raises(SystemExit) as excinfo:
+        execute_run_command(argparse.Namespace())
+    assert excinfo.value.code == 2
+    assert "WECO_MODE=weco" in capsys.readouterr().out
+
+
+def test_resume_refuses_cleanly_in_local_mode(local_mode, capsys):
+    import argparse
+
+    from weco.cli import execute_resume_command
+
+    with pytest.raises(SystemExit) as excinfo:
+        execute_resume_command(argparse.Namespace())
+    assert excinfo.value.code == 2
+    assert "weco local run" in capsys.readouterr().out
+
+
 def test_start_claude_rejects_weco_billing_in_local_mode(local_mode, monkeypatch):
     monkeypatch.setattr("weco.commands.start.cli._require_claude_cli", lambda console: None)
     import argparse

@@ -126,4 +126,27 @@ def handle_setup_command(args, console: Console) -> None:
         for tool in selected_tools:
             run_setup_for_tool(tool, console, source, ctx)
 
+    # The z.ai MCP wiring runs only on the explicit zcode selection (never
+    # from the all shortcut): it writes a workspace config file.
+    if getattr(args, "tool", None) == "zcode":
+        _wire_zcode_mcp(args, console)
+
     console.print("\n[bold green]Setup complete.[/]")
+
+
+def _wire_zcode_mcp(args, console: Console) -> None:
+    """Merge the z.ai MCP servers into the ZCode workspace config."""
+    from weco.harnesses.zcode import ZcodeConfigError, write_config
+
+    config_path = pathlib.Path(getattr(args, "zcode_config", ".zcode/config.json")).expanduser().resolve()
+    region = getattr(args, "zai_endpoint", "intl")
+    force = bool(getattr(args, "force", False))
+    try:
+        exports = write_config(config_path, region, force=force)
+    except ZcodeConfigError as e:
+        console.print(f"[bold red]z.ai MCP wiring failed:[/] {e}")
+        sys.exit(1)
+    console.print(f"[cyan]z.ai MCP servers ({region}) merged into {config_path}[/]")
+    console.print("[yellow]Export before starting ZCode:[/]")
+    for line in exports:
+        console.print(f"  {line}")

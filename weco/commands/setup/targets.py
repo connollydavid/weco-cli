@@ -55,6 +55,14 @@ SETUP_TARGETS = (
         # the SKILL.md frontmatter description, so no trigger file is needed.
         install_dir=pathlib.Path.home() / ".config" / "opencode" / "skills" / "weco",
     ),
+    SetupTarget(
+        name="zcode",
+        label="ZCode",
+        help_text="Set up Weco skill for ZCode (and wire the z.ai MCP servers)",
+        # ZCode's user-global skills root; the SKILL.md frontmatter
+        # description is the trigger, as with opencode.
+        install_dir=pathlib.Path.home() / ".zcode" / "skills" / "weco",
+    ),
 )
 
 SETUP_TARGET_BY_NAME = {target.name: target for target in SETUP_TARGETS}

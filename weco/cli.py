@@ -439,6 +439,23 @@ def configure_setup_parser(setup_parser: argparse.ArgumentParser) -> None:
     for target in SETUP_TARGETS:
         target_parser = setup_subparsers.add_parser(target.name, help=target.help_text)
         _add_setup_source_args(target_parser)
+        if target.name == "zcode":
+            target_parser.add_argument(
+                "--zai-endpoint",
+                type=str,
+                choices=["intl", "zh"],
+                default="intl",
+                help="z.ai region for the MCP servers: intl (api.z.ai, default) or zh (open.bigmodel.cn)",
+            )
+            target_parser.add_argument(
+                "--zcode-config",
+                type=str,
+                default=".zcode/config.json",
+                help="ZCode workspace config to merge the servers into (default: .zcode/config.json)",
+            )
+            target_parser.add_argument(
+                "--force", action="store_true", help="Replace managed z.ai entries that differ instead of refusing"
+            )
 
     all_parser = setup_subparsers.add_parser(ALL_SETUP_OPTION_NAME, help="Set up Weco for all supported AI tools")
     _add_setup_source_args(all_parser)

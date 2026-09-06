@@ -582,10 +582,24 @@ def _dispatch_run_subcommand(sub: str, args: argparse.Namespace) -> None:
     sys.exit(0 if result is not False else 1)
 
 
+def _refuse_cloud_command(what: str) -> None:
+    """Local mode's clean refusal for a cloud-consuming command."""
+    console.print(
+        f"[red]{what} talks to Weco's cloud, which local mode never does.[/]\n"
+        "Opt in explicitly with [bold]WECO_MODE=weco[/] (after [bold]weco login[/]), "
+        "or use the local loop: [bold]weco local run --help[/]."
+    )
+    sys.exit(2)
+
+
 def execute_run_command(args: argparse.Namespace) -> None:
     """Execute the 'weco run' command with all its logic."""
     from .optimizer import AutoResumePolicy, optimize
 
+    from weco import mode
+
+    if mode.is_local():
+        _refuse_cloud_command("weco run")
     ctx = get_event_context()
 
     # Resolve eval_command: dispatch to the selected backend or use --eval-command directly
@@ -695,6 +709,10 @@ def execute_resume_command(args: argparse.Namespace) -> None:
     """Execute the 'weco resume' command with all its logic."""
     from .optimizer import AutoResumePolicy, resume_optimization
 
+    from weco import mode
+
+    if mode.is_local():
+        _refuse_cloud_command("weco resume")
     try:
         api_keys = parse_api_keys(args.api_key)
     except ValueError as e:

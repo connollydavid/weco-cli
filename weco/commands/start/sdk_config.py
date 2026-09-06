@@ -10,6 +10,8 @@ from __future__ import annotations
 import os
 from typing import Any, Optional
 
+import weco.harnesses.claude_code
+
 
 # `effort` strings the SDK accepts, in display order. Shared with the
 # argparse `--effort` choices so the CLI and the SDK agree on one list.
@@ -152,23 +154,9 @@ def build_sdk_env(*, billing: str, api_key: str, weco_api_base: Optional[str], s
     if session_id:
         env["WECO_CC_SESSION_ID"] = session_id
     if billing == "weco" and weco_api_base:
-        base = weco_api_base.rstrip("/")
-        # Encode session id as a path segment rather than a header — the
-        # Anthropic Python SDK doesn't honor `ANTHROPIC_CUSTOM_HEADERS`,
-        # so the proxy reads the id off the URL instead.
-        if session_id:
-            env["ANTHROPIC_BASE_URL"] = f"{base}/llm/anthropic/s/{session_id}"
-        else:
-            env["ANTHROPIC_BASE_URL"] = f"{base}/llm/anthropic"
-        env["ANTHROPIC_API_KEY"] = api_key
+        env.update(weco.harnesses.claude_code.weco_proxy_env(api_key, weco_api_base, session_id))
         return env
 
     if billing == "claude":
-        weco_base_marker = (weco_api_base or "").rstrip("/")
-        cur_base = env.get("ANTHROPIC_BASE_URL", "")
-        if weco_base_marker and cur_base.startswith(weco_base_marker):
-            env.pop("ANTHROPIC_BASE_URL", None)
-        cur_key = env.get("ANTHROPIC_API_KEY", "")
-        if cur_key.startswith("weco-"):
-            env.pop("ANTHROPIC_API_KEY", None)
+        env = dict(weco.harnesses.claude_code.sanitize_claude_env(env, weco_api_base))
     return env

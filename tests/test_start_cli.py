@@ -24,16 +24,13 @@ def test_require_claude_cli_passes_when_installed(monkeypatch):
 
 
 def _claude_args(**overrides):
-    base = dict(
-        start_command="claude", allow_tools=False, effort=None, billing="claude", headless=False, prompt=None, claude_args=[]
-    )
+    base = dict(start_command="claude", allow_tools=False, effort=None, headless=False, prompt=None, claude_args=[])
     base.update(overrides)
     return argparse.Namespace(**base)
 
 
 def _stub_runners(monkeypatch):
     calls = {}
-    monkeypatch.setattr(cli, "load_weco_api_key", lambda: "weco-key")
     monkeypatch.setattr(cli.shutil, "which", lambda _name: "/usr/local/bin/claude")
 
     def _record(key):

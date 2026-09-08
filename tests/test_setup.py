@@ -56,15 +56,15 @@ def test_handle_setup_command_all_runs_all_handlers(monkeypatch):
     """The all shortcut should invoke every supported setup handler."""
     called_tools = []
 
-    def fake_run_setup(tool, console, local_path, ctx):
-        called_tools.append((tool, local_path, ctx))
+    def fake_run_setup(tool, console, source):
+        called_tools.append((tool, source))
 
     monkeypatch.setattr("weco.commands.setup.run_setup_for_tool", fake_run_setup)
     args = argparse.Namespace(tool=ALL_SETUP_OPTION_NAME, local=None)
 
     handle_setup_command(args, console=build_console())
 
-    assert [tool for tool, _, _ in called_tools] == list(SETUP_TARGET_NAMES)
+    assert [tool for tool, _ in called_tools] == list(SETUP_TARGET_NAMES)
 
 
 @pytest.mark.parametrize("tool", SETUP_TARGET_NAMES)
@@ -72,12 +72,12 @@ def test_handle_setup_command_runs_single_selected_handler(monkeypatch, tool):
     """Named setup targets should dispatch to a single handler."""
     called_tools = []
 
-    def fake_run_setup(selected_tool, console, local_path, ctx):
-        called_tools.append((selected_tool, local_path, ctx))
+    def fake_run_setup(selected_tool, console, source):
+        called_tools.append((selected_tool, source))
 
     monkeypatch.setattr("weco.commands.setup.run_setup_for_tool", fake_run_setup)
     args = argparse.Namespace(tool=tool, local=None)
 
     handle_setup_command(args, console=build_console())
 
-    assert [selected_tool for selected_tool, _, _ in called_tools] == [tool]
+    assert [selected_tool for selected_tool, _ in called_tools] == [tool]

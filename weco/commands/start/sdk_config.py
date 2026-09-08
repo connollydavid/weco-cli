@@ -36,8 +36,8 @@ Load the `/weco` skill BEFORE running any `weco` command. The skill carries
 the canonical workflow — how to start a run, monitor it without blocking,
 steer with `derive`, and read results — and a bare `weco` invocation without
 it almost always goes wrong. So before you run ANY `weco …` shell command
-(`weco run`, `weco run derive`, `weco run status`, `weco run stop`,
-`weco run results`, `weco resume`, …), make sure the `/weco` skill is loaded
+(`weco local run`, `weco observe`, `weco setup`, `weco start`, …), make sure
+the `/weco` skill is loaded
 in this session; if you have not already invoked it, invoke `/weco` first and
 follow its guidance.
 """

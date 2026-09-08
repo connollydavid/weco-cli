@@ -12,7 +12,6 @@ import asyncio
 import io
 import json
 from types import SimpleNamespace
-from unittest.mock import MagicMock
 
 import pytest
 from rich.console import Console
@@ -361,46 +360,6 @@ def test_keep_stream_open_hook_returns_continue():
 
 
 # --- Run-id scanning -----------------------------------------------------------
-
-
-def test_scan_for_run_ids_picks_id_out_of_tool_result_text():
-    from claude_agent_sdk.types import ToolResultBlock, UserMessage
-
-    rw = MagicMock()
-    msg = UserMessage(
-        content=[
-            ToolResultBlock(
-                tool_use_id="tu_1", content="Run ID: a14ca1c1-56a7-4ae6-b054-51741adfbee5\nRun Name: foo", is_error=False
-            )
-        ],
-        parent_tool_use_id=None,
-        tool_use_result=None,
-        uuid=None,
-    )
-    bridge.scan_for_run_ids(msg, rw)
-    rw.watch.assert_called_with("a14ca1c1-56a7-4ae6-b054-51741adfbee5")
-
-
-def test_scan_for_run_ids_ignores_non_user_messages():
-    from claude_agent_sdk.types import AssistantMessage, TextBlock
-
-    rw = MagicMock()
-    msg = AssistantMessage(
-        content=[TextBlock(text="Run ID: aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee")],
-        model="m",
-        parent_tool_use_id=None,
-        error=None,
-        usage=None,
-        message_id=None,
-        stop_reason=None,
-        session_id=None,
-        uuid=None,
-    )
-    bridge.scan_for_run_ids(msg, rw)
-    rw.watch.assert_not_called()
-
-
-# --- peek_model ----------------------------------------------------------------
 
 
 def test_peek_model_reads_space_separated_form():

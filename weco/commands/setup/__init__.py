@@ -3,18 +3,10 @@
 import pathlib
 import sys
 import tempfile
-import time
 
 from rich.console import Console
 from rich.prompt import Prompt
 
-from ...events import (
-    create_event_context,
-    send_event,
-    SkillInstallCompletedEvent,
-    SkillInstallFailedEvent,
-    SkillInstallStartedEvent,
-)
 from ...utils import DownloadError
 from .install import SafetyError, SetupError, download_skill_archive, install_target
 from .targets import ALL_SETUP_OPTION_LABEL, ALL_SETUP_OPTION_NAME, SETUP_TARGET_BY_NAME, SETUP_TARGET_NAMES, SETUP_TARGETS
@@ -65,10 +57,10 @@ def prompt_tool_selection(console: Console) -> list[str]:
     console.print("\n[bold cyan]Available tools to set up:[/]\n")
     for i, target in enumerate(SETUP_TARGETS, 1):
         console.print(f"  {i}. {target.label} [dim]({target.name})[/]")
-    console.print(f"  {all_option}. {ALL_SETUP_OPTION_LABEL} [dim](default)[/]")
+    console.print(f"  {all_option}. {ALL_SETUP_OPTION_LABEL} [dim](default)[/]\n")
 
     valid_choices = [str(i) for i in range(1, all_option + 1)]
-    choice = Prompt.ask("\n[bold]Select an option[/]", choices=valid_choices, default=str(all_option), show_choices=True)
+    choice = Prompt.ask("[bold]Select an option[/]", choices=valid_choices, default=str(all_option), show_choices=True)
 
     idx = int(choice)
     if idx == all_option:
@@ -76,34 +68,24 @@ def prompt_tool_selection(console: Console) -> list[str]:
     return [tool_names[idx - 1]]
 
 
-def run_setup_for_tool(tool: str, console: Console, source: _SkillSource, ctx) -> None:
-    """Run setup for a single tool with event tracking and error handling."""
-    send_event(SkillInstallStartedEvent(tool=tool, source=source.kind), ctx)
-    start_time = time.time()
-
+def run_setup_for_tool(tool: str, console: Console, source: _SkillSource) -> None:
+    """Run setup for a single tool."""
     try:
         source_path = source.path()
         install_target(SETUP_TARGET_BY_NAME[tool], console, source_path)
     except DownloadError as e:
-        send_event(SkillInstallFailedEvent(tool=tool, source=source.kind, error_type="download_error", stage="download"), ctx)
         console.print(f"\n[bold red]Error:[/] {e}")
         sys.exit(1)
     except SafetyError as e:
-        send_event(SkillInstallFailedEvent(tool=tool, source=source.kind, error_type="safety_error", stage="setup"), ctx)
         console.print(f"\n[bold red]Safety Error:[/] {e}")
         sys.exit(1)
     except (SetupError, FileNotFoundError, OSError, ValueError) as e:
-        send_event(SkillInstallFailedEvent(tool=tool, source=source.kind, error_type=type(e).__name__, stage="setup"), ctx)
         console.print(f"\n[bold red]Error:[/] {e}")
         sys.exit(1)
-
-    duration_ms = int((time.time() - start_time) * 1000)
-    send_event(SkillInstallCompletedEvent(tool=tool, source=source.kind, duration_ms=duration_ms), ctx)
 
 
 def handle_setup_command(args, console: Console) -> None:
     """Handle the ``weco setup`` command."""
-    ctx = create_event_context()
 
     if args.tool is None:
         selected_tools = prompt_tool_selection(console)
@@ -124,6 +106,29 @@ def handle_setup_command(args, console: Console) -> None:
 
     with _SkillSource(local_path, console) as source:
         for tool in selected_tools:
-            run_setup_for_tool(tool, console, source, ctx)
+            run_setup_for_tool(tool, console, source)
+
+    # The z.ai MCP wiring runs only on the explicit zcode selection (never
+    # from the all shortcut): it writes a workspace config file.
+    if getattr(args, "tool", None) == "zcode":
+        _wire_zcode_mcp(args, console)
 
     console.print("\n[bold green]Setup complete.[/]")
+
+
+def _wire_zcode_mcp(args, console: Console) -> None:
+    """Merge the z.ai MCP servers into the ZCode workspace config."""
+    from weco.harnesses.zcode import ZcodeConfigError, write_config
+
+    config_path = pathlib.Path(getattr(args, "zcode_config", ".zcode/config.json")).expanduser().resolve()
+    region = getattr(args, "zai_endpoint", "intl")
+    force = bool(getattr(args, "force", False))
+    try:
+        exports = write_config(config_path, region, force=force)
+    except ZcodeConfigError as e:
+        console.print(f"[bold red]z.ai MCP wiring failed:[/] {e}")
+        sys.exit(1)
+    console.print(f"[cyan]z.ai MCP servers ({region}) merged into {config_path}[/]")
+    console.print("[yellow]Export before starting ZCode:[/]")
+    for line in exports:
+        console.print(f"  {line}")

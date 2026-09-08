@@ -49,17 +49,16 @@ from typing import Any, Callable, Optional
 from rich.console import Console
 
 from claude_agent_sdk import ClaudeAgentOptions, ClaudeSDKClient, CLINotFoundError, HookMatcher
-from claude_agent_sdk.types import ResultMessage, ToolResultBlock, UserMessage
+from claude_agent_sdk.types import ResultMessage
 
 from weco.ui.tui import WecoTUI
 from weco.ui.tui.approval import ApprovalCard
 from weco.ui.tui.question import QuestionCard
 
 from .approval_router import ApprovalRouter
-from .session import DashboardSession, SetupError
-from .envelopes import envelope_for, is_synthetic_interrupt_message, render_ui_context_preamble, stringify_tool_result
+from .session import DashboardSession
+from .envelopes import envelope_for, is_synthetic_interrupt_message, render_ui_context_preamble
 from .rendering import Renderer
-from .run_watcher import RunWatcher, find_run_ids
 from .sdk_config import (
     VALID_EFFORTS,
     WECO_SYSTEM_PROMPT_APPEND,
@@ -104,16 +103,7 @@ def run_tui_bridge(
     seed_prompt: Optional[str] = None,
 ) -> int:
     """Boot the TUI and the SDK-driven orchestrator."""
-    try:
-        session = (
-            DashboardSession.create(api_key=api_key, agent_type=AGENT_TYPE)
-            if api_key
-            else DashboardSession.offline()  # local mode: no login, no relay
-        )
-    except SetupError as e:
-        console.print(f"[red]Could not create dashboard session:[/] {e}")
-        console.print("[yellow]Falling back to a plain local Claude Code session.[/]")
-        session = DashboardSession.offline()
+    session = DashboardSession.offline()  # offline-only: no relay, no login
 
     app = WecoTUI()
     orchestrator = Orchestrator(
@@ -152,19 +142,7 @@ def run_headless_bridge(
     no terminal to draw a Textual app into, so the dashboard is the only
     interactive surface. Pair with `--allow-tools` (no local approval modal) and
     `--prompt` to seed the first turn."""
-    try:
-        session = (
-            DashboardSession.create(api_key=api_key, agent_type=AGENT_TYPE)
-            if api_key
-            else DashboardSession.offline()  # local mode: no login, no relay
-        )
-    except SetupError as e:
-        console.print(f"[red]Could not create dashboard session:[/] {e}")
-        console.print(
-            "[yellow]Headless mode relies on the dashboard relay for interactivity — continuing offline; "
-            "the session will only run the seeded prompt.[/]"
-        )
-        session = DashboardSession.offline()
+    session = DashboardSession.offline()  # offline-only: no relay, no login
 
     app = HeadlessUI(console)
     orchestrator = Orchestrator(
@@ -299,7 +277,7 @@ class Orchestrator:
         # required for headless launches, handy for the TUI.
         self._seed_prompt = seed_prompt
 
-        self.session_id: Optional[str] = session.id
+        self.session_id: Optional[str] = getattr(session, "id", None)
         self.dashboard_url: Optional[str] = session.dashboard_url
 
         self.exit_code: int = 0
@@ -313,7 +291,6 @@ class Orchestrator:
         # requests (e.g. derive_request) that surface as their own meta card.
         self._pending_prompts: asyncio.Queue[tuple[str, Optional[dict], bool]] = asyncio.Queue()
         self._tasks: list[asyncio.Task] = []
-        self._run_watcher: Optional[RunWatcher] = None
         self._approval_router: Optional[ApprovalRouter] = None
         # Persistent SDK client. One long-lived consumer drains the SDK message
         # stream (see `_consume_messages`); prompts are fed in separately via
@@ -383,10 +360,6 @@ class Orchestrator:
 
     async def _setup_and_loop(self) -> None:
         self._emit_meta("claude_session_started")
-
-        self._run_watcher = RunWatcher(
-            weco_bin=shutil.which("weco"), notify=self._notify_run_update, stop_event=self._stop_event
-        )
 
         self._approval_router = ApprovalRouter(
             publish=self._session.publish,
@@ -489,8 +462,6 @@ class Orchestrator:
                 await asyncio.wait_for(task, timeout=TASK_SHUTDOWN_TIMEOUT_S)
             except (asyncio.CancelledError, Exception):
                 pass
-        if self._run_watcher is not None:
-            await self._run_watcher.stop()
 
     # --- User → bridge ---------------------------------------------------
 
@@ -510,7 +481,7 @@ class Orchestrator:
 
     async def on_exit_stop_runs(self) -> None:
         """Second Ctrl-C — stop every active `weco run` before tearing down."""
-        run_ids = self._run_watcher.watching() if self._run_watcher is not None else []
+        run_ids = []
         if not run_ids:
             return
         weco_bin = shutil.which("weco")
@@ -599,12 +570,6 @@ class Orchestrator:
             return
         self._cancel_current_turn()
         self.app.post_user_message(text)
-        # Dashboard-initiated actions (e.g. "Explore a new path" derives) list
-        # new runs as `Run ID: <uuid>` lines — watch them mechanically so
-        # terminal/dashboard pings don't depend on the agent acting.
-        if self._run_watcher is not None:
-            for run_id in find_run_ids(text):
-                self._run_watcher.watch(run_id)
         # Optional `context` rides with the prompt — the dashboard bundles its
         # current view snapshot so the agent has context for THIS turn without
         # a continuous `ui_context` broadcast.
@@ -850,12 +815,6 @@ class Orchestrator:
             pass
 
         try:
-            if self._run_watcher is not None:
-                scan_for_run_ids(message, self._run_watcher)
-        except Exception:
-            pass
-
-        try:
             self._renderer.render(message)
         except Exception:
             # Don't let a render bug derail the session.
@@ -980,20 +939,3 @@ def build_derive_prompt(run_id: str, paths: list[dict]) -> str:
         + "\n\nThen briefly confirm, report the new run IDs, and add them ALL to your monitoring loop "
         "(poll `weco run status <run-id>` for each, non-blocking; report new bests and completions)."
     )
-
-
-def scan_for_run_ids(message: Any, run_watcher: RunWatcher) -> None:
-    """Spot `Run ID: <uuid>` in tool_result text and start polling.
-
-    The run watcher's notify callback surfaces status updates to the UI via
-    `Orchestrator._notify_run_update`, so no app reference is needed here.
-    """
-    if not isinstance(message, UserMessage):
-        return
-    blocks = message.content if isinstance(message.content, list) else []
-    for block in blocks:
-        if isinstance(block, ToolResultBlock):
-            text = stringify_tool_result(block.content)
-            if text:
-                for run_id in find_run_ids(text):
-                    run_watcher.watch(run_id)

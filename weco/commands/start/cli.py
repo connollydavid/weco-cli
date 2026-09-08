@@ -8,8 +8,6 @@ import sys
 
 from rich.console import Console
 
-from weco.config import load_weco_api_key
-
 from .sdk_config import VALID_EFFORTS
 
 
@@ -60,19 +58,6 @@ def configure_start_parser(start_parser: argparse.ArgumentParser) -> None:
         help=(
             "Seed the first turn with this prompt instead of waiting for input. "
             "Required to make --headless do anything immediately; also works in the TUI."
-        ),
-    )
-    claude_parser.add_argument(
-        "--billing",
-        type=str,
-        choices=["claude", "weco"],
-        default="claude",
-        help=(
-            "Where LLM calls are billed. 'claude' (default) uses your local Claude auth "
-            "(OAuth from `claude login`, or `ANTHROPIC_API_KEY`) and your usage counts "
-            "against whatever credit pool Anthropic's billing applies to those credentials. "
-            "'weco' routes through Weco's LLM proxy and deducts from your Weco credit wallet "
-            "(works for any auth scheme). Choose 'weco' if you'd rather pay through Weco."
         ),
     )
     claude_parser.add_argument(
@@ -136,19 +121,6 @@ def handle_start_command(args: argparse.Namespace, console: Console) -> None:
         console.print("[red]Unknown start subcommand.[/]")
         console.print("Usage: [bold]weco start claude | weco start opencode | weco start codex[/]")
         sys.exit(2)
-
-
-def _require_api_key(console: Console) -> str | None:
-    """The Weco API key, or None in local mode (no login, offline dashboard)."""
-    from weco import mode
-
-    if mode.is_local():
-        return None
-    api_key = load_weco_api_key()
-    if not api_key:
-        console.print("[red]Not logged in.[/] Run [bold]weco login[/] first.")
-        sys.exit(1)
-    return api_key
 
 
 def _require_claude_cli(console: Console) -> None:
@@ -215,10 +187,6 @@ def _handle_codex(args: argparse.Namespace, console: Console) -> None:
 
 
 def _handle_claude(args: argparse.Namespace, console: Console) -> None:
-    from weco import mode
-
-    local = mode.is_local()
-    api_key = _require_api_key(console)
     _require_claude_cli(console)
 
     forwarded = _strip_arg_separator(list(getattr(args, "claude_args", []) or []))
@@ -226,29 +194,18 @@ def _handle_claude(args: argparse.Namespace, console: Console) -> None:
         forwarded.append("--dangerously-skip-permissions")
 
     effort = getattr(args, "effort", None)
-    billing = getattr(args, "billing", "claude")
-    if local and billing == "weco":
-        console.print(
-            "[red]weco billing routes model calls through Weco's cloud, which local mode never does.[/]\n"
-            "Run with the default claude billing (your own Claude auth), or opt in with "
-            "[bold]WECO_MODE=weco[/]."
-        )
-        sys.exit(2)
     headless = getattr(args, "headless", False)
     seed_prompt = getattr(args, "prompt", None)
-    if local:
-        console.print("[dim]Local mode: running with an offline dashboard (no relay, no login).[/]")
 
-    from weco import __base_url__
     from .tui_bridge import run_headless_bridge, run_tui_bridge
 
     runner = run_headless_bridge if headless else run_tui_bridge
     exit_code = runner(
         claude_args=forwarded,
-        api_key=api_key,
+        api_key=None,
         console=console,
-        billing=billing,
-        weco_api_base=__base_url__,
+        billing="claude",
+        weco_api_base=None,
         effort=effort,
         seed_prompt=seed_prompt,
     )

@@ -23,7 +23,6 @@ from weco.commands.setup import handle_setup_command
 
 @pytest.fixture()
 def local_home(tmp_path, monkeypatch):
-    monkeypatch.delenv("WECO_MODE", raising=False)
     monkeypatch.setenv("HOME", str(tmp_path / "home"))
     monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "home" / ".config"))
     monkeypatch.setenv("XDG_DATA_HOME", str(tmp_path / "home" / ".local" / "share"))
@@ -53,11 +52,11 @@ def network_is_closed(monkeypatch):
                 raise AssertionError("local mode attempted to open a network socket")
             super().__init__(*args, **kwargs)
 
-    monkeypatch.setattr("weco.core.api.requests.Session.request", refuse)
-    monkeypatch.setattr("weco.events.requests.post", refuse)
-    monkeypatch.setattr("weco.env.requests.get", refuse)
-    monkeypatch.setattr("weco.auth.requests.post", refuse)
-    monkeypatch.setattr("weco.observe.api.requests.request", refuse)
+    import requests
+
+    monkeypatch.setattr(requests, "post", refuse)
+    monkeypatch.setattr(requests, "get", refuse)
+    monkeypatch.setattr(requests.Session, "request", refuse)
     monkeypatch.setattr(socket, "socket", GuardSocket)
     return calls
 
@@ -69,10 +68,10 @@ def _run_main(argv: list[str]) -> None:
         weco_cli.main()
 
 
-def test_main_dispatch_makes_no_calls(local_home, network_is_closed, capsys, monkeypatch):
-    # A bare dispatch (the old update-check site) with no command args:
-    # argparse prints usage and exits; nothing may touch the network first.
-    monkeypatch.setattr("sys.argv", ["weco"])
+def test_unknown_command_makes_no_calls(local_home, network_is_closed, monkeypatch):
+    # There is no login and no update check to reach; an unknown command is
+    # an argparse error before any code path could touch the network.
+    monkeypatch.setattr("sys.argv", ["weco", "login"])
     _run_main([])
     assert network_is_closed == []
 

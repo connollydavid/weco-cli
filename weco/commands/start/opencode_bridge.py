@@ -15,6 +15,8 @@ The event shapes are pinned by test fixtures rather than a live opencode;
 from __future__ import annotations
 
 import json
+import os
+import shutil
 import subprocess
 import sys
 from typing import IO, Any, Mapping
@@ -50,11 +52,27 @@ def normalize_event(raw: Any) -> dict:
     return envelope
 
 
+def _resolve_opencode() -> str:
+    """Locate the opencode binary: PATH first, then the default install
+    directory. A bare name fails in detached contexts (tmux, schedulers,
+    agent harnesses) where ~/.opencode/bin is not on PATH."""
+    found = shutil.which("opencode")
+    if found:
+        return found
+    default = os.path.expanduser("~/.opencode/bin/opencode")
+    if os.access(default, os.X_OK):
+        return default
+    raise FileNotFoundError(
+        "opencode not found on PATH or at ~/.opencode/bin/opencode; "
+        "install it or add its directory to PATH"
+    )
+
+
 def run_opencode_bridge(
     *, prompt: str | None, agent: str | None, forwarded_args: list[str], console, stdout: IO[str] | None = None
 ) -> int:
     """Run ``opencode run --format json`` and stream normalized events as JSONL."""
-    argv = ["opencode", "run", "--format", "json"]
+    argv = [_resolve_opencode(), "run", "--format", "json"]
     if agent:
         argv += ["--agent", agent]
     argv += forwarded_args
@@ -63,7 +81,16 @@ def run_opencode_bridge(
 
     out = stdout or sys.stdout
     console.print(f"[dim]$ {' '.join(argv)}[/]")
-    process = subprocess.Popen(argv, stdout=subprocess.PIPE, stderr=None, text=True, bufsize=1)
+    # stdin from the void: a headless opencode that reads stdin would
+    # otherwise hang waiting on a tty that will never answer
+    process = subprocess.Popen(
+        argv,
+        stdin=subprocess.DEVNULL,
+        stdout=subprocess.PIPE,
+        stderr=None,
+        text=True,
+        bufsize=1,
+    )
     assert process.stdout is not None
     for line in process.stdout:
         line = line.strip()

@@ -33,6 +33,19 @@ def configure_local_parser(local_parser: argparse.ArgumentParser) -> None:
     )
     run_parser.add_argument("--steps", type=int, default=5, help="Number of improve-and-measure steps (default: 5).")
     run_parser.add_argument("--workdir", type=str, default=".", help="Workspace to optimize (default: current directory).")
+    run_parser.add_argument(
+        "--resume",
+        action="store_true",
+        help="Continue from the append-only step log: recorded steps are skipped, numbering "
+        "continues, and the best value is reconstructed from history.",
+    )
+    run_parser.add_argument(
+        "--eval-timeout",
+        type=float,
+        default=None,
+        help="Kill an eval that runs longer than this many seconds and record the step as failed "
+        "(default: no timeout).",
+    )
 
 
 def execute_local_command(args: argparse.Namespace, console: Console) -> None:
@@ -58,9 +71,17 @@ def execute_local_command(args: argparse.Namespace, console: Console) -> None:
         maximize=args.goal in ("maximize", "max"),
         steps=args.steps,
         workdir=workdir,
+        resume=args.resume,
+        eval_timeout=args.eval_timeout,
     )
     best = summary["best"]
     console.print(
         f"Local loop done: best {summary['metric']} = {best['value']} at step {best['step']} "
         f"(report: {workdir / '.weco' / 'local-loop' / 'report.json'})"
     )
+    if summary.get("aborted_harness"):
+        console.print(
+            "[red]Aborted: the harness failed 3 consecutive steps. The step log is intact; "
+            "re-run with --resume to continue.[/]"
+        )
+        sys.exit(1)
